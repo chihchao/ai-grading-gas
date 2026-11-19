@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>AI 作業自動評分系統</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --muted: #64748b;
+      --success-bg: #ecfdf5;
+      --success-text: #065f46;
+      --warn-bg: #fffbeb;
+      --warn-text: #92400e;
+      --danger: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    header {
+      background: #1e293b;
+      color: #fff;
+      padding: 14px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    header h1 { margin: 0; font-size: 1.2rem; display: flex; align-items: center; gap: 8px; }
+    .user-bar { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; flex-wrap: wrap; }
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+    .badge-teacher { background: #f59e0b; color: #1e293b; }
+    .badge-student { background: #38bdf8; color: #0f172a; }
+    .badge-latest { background: var(--success-bg); color: var(--success-text); border: 1px solid #a7f3d0; }
+    .badge-old { background: #f1f5f9; color: var(--muted); }
+    .badge-active { background: var(--success-bg); color: var(--success-text); }
+    .badge-closed { background: #fee2e2; color: #991b1b; }
+
+    .container { max-width: 1120px; margin: 24px auto; padding: 0 16px 48px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .card h2, .card h3 { margin-top: 0; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 820px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.92rem; }
+    input[type="text"], input[type="email"], input[type="number"], select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      background: #fff;
+    }
+    textarea { min-height: 110px; resize: vertical; }
+    .form-group { margin-bottom: 14px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 9px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+    .btn-secondary { background: #e2e8f0; color: var(--text); }
+    .btn-secondary:hover:not(:disabled) { background: #cbd5e1; }
+    .btn-outline { background: transparent; border: 1px solid rgba(255,255,255,0.35); color: #fff; }
+    .btn-sm { padding: 5px 10px; font-size: 0.82rem; }
+
+    .tabs { display: flex; gap: 8px; border-bottom: 2px solid var(--border); margin-bottom: 16px; }
+    .tab-btn {
+      background: none; border: none; padding: 10px 16px; font-size: 0.95rem;
+      font-weight: 600; color: var(--muted); cursor: pointer;
+      border-bottom: 2px solid transparent; margin-bottom: -2px;
+    }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    .drop-zone {
+      border: 2px dashed #94a3b8;
+      border-radius: 10px;
+      padding: 18px;
+      text-align: center;
+      background: #f8fafc;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .drop-zone.dragover { border-color: var(--primary); background: #eff6ff; }
+    .file-list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .file-item {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #f1f5f9; padding: 6px 12px; border-radius: 6px; font-size: 0.88rem;
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: #f8fafc; font-weight: 600; color: var(--muted); }
+    .table-wrap { overflow-x: auto; }
+
+    .score-box {
+      background: linear-gradient(135deg, #eff6ff, #ecfdf5);
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .score-big { font-size: 2rem; font-weight: 800; color: var(--primary); }
+    .pre-box {
+      background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 8px;
+      overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.84rem; max-height: 320px;
+    }
+    .alert { padding: 12px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 0.9rem; }
+    .alert-warn { background: var(--warn-bg); color: var(--warn-text); border: 1px solid #fde68a; }
+    .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(15,23,42,0.55);
+      display: none; align-items: center; justify-content: center; padding: 16px; z-index: 999;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: #fff; border-radius: 12px; max-width: 820px; width: 100%;
+      max-height: 90vh; overflow-y: auto; padding: 22px;
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2);
+    }
+    .hidden { display: none !important; }
+    .muted { color: var(--muted); font-size: 0.88rem; }
+  </style>
+</head>
+<body>
+  <!-- 安全傳遞後端 Relay Token，避免 GAS scriptlet JS 引號轉義問題 -->
+  <div id="relayTokenCarrier" data-token="<?= initialRelayToken || '' ?>" class="hidden"></div>
+
+  <header>
+    <h1>AI 作業自動評分系統 <span style="font-size:0.78rem;font-weight:400;opacity:0.8;">Powered by Gemini</span></h1>
+    <div class="user-bar" id="userBar">
+      <span id="userStatusText">載入中...</span>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- 載入中 -->
+    <div id="loadingCard" class="card">
+      <p>正在驗證帳號並載入資料，請稍候...</p>
+    </div>
+
+    <!-- 登入驗證畫面（僅當跨網域或外部 Gmail 且未取得原生 Session 時顯示） -->
+    <div id="authCard" class="card hidden" style="max-width:480px;margin:40px auto;">
+      <h2>登入驗證</h2>
+      <p class="muted">請使用您的 Google / Email 帳號完成身份認證後開始使用系統。</p>
+      <div id="authErrorBox" class="alert alert-error hidden"></div>
+
+      <div id="relayLoginSection" class="hidden" style="margin-bottom:18px;">
+        <a id="relayLoginLink" href="#" target="_top" class="btn btn-primary" style="width:100%;text-decoration:none;">
+          使用 Google 帳號一鍵登入
+        </a>
+        <div style="text-align:center;margin:14px 0;color:#94a3b8;font-size:0.85rem;">— 或使用 Email 驗證碼登入 —</div>
+      </div>
+
+      <div class="form-group">
+        <label for="otpEmail">Google / Email 信箱</label>
+        <input type="email" id="otpEmail" placeholder="example@gmail.com">
+      </div>
+      <div class="form-group">
+        <button class="btn btn-secondary" id="sendOtpBtn" onclick="handleSendOtp()">寄送 6 位數驗證碼</button>
+      </div>
+      <div id="otpVerifyBox" class="hidden">
+        <div class="form-group">
+          <label for="otpCode">輸入驗證碼</label>
+          <input type="text" id="otpCode" placeholder="請輸入信箱收到的 6 位數驗證碼">
+        </div>
+        <button class="btn btn-primary" id="verifyOtpBtn" onclick="handleVerifyOtp()">驗證並登入</button>
+      </div>
+    </div>
+
+    <!-- 主系統區域 -->
+    <div id="mainApp" class="hidden">
+      <div id="apiWarning" class="alert alert-warn hidden">
+        注意：系統尚未在指令碼屬性設定 <code>GEMINI_API_KEY</code>，AI 評分功能將無法運作。
+      </div>
+
+      <!-- 教師模式 -->
+      <div id="teacherView" class="hidden">
+        <div class="tabs">
+          <button class="tab-btn active" onclick="switchTeacherTab('dashboard', this)">成績總覽與批改紀錄</button>
+          <button class="tab-btn" onclick="switchTeacherTab('manage', this)">作業管理（新增 / 編輯）</button>
+        </div>
+
+        <!-- 教師分頁 1：成績與繳交紀錄 -->
+        <div id="teacherDashboardTab">
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+              <div style="flex:1;min-width:240px;">
+                <label for="teacherAssignmentFilter">選擇檢視作業</label>
+                <select id="teacherAssignmentFilter" onchange="loadTeacherDashboard()"></select>
+              </div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-secondary" onclick="loadTeacherDashboard()">重新整理</button>
+                <button class="btn btn-primary" onclick="exportTeacherCsv()">匯出採計成績 CSV</button>
+              </div>
+            </div>
+            <div id="teacherStats" class="muted" style="margin-top:12px;"></div>
+          </div>
+
+          <div class="card">
+            <div class="tabs">
+              <button class="tab-btn active" onclick="switchTeacherSubTab('summary', this)">學生成績總覽（以最後一筆為準）</button>
+              <button class="tab-btn" onclick="switchTeacherSubTab('all', this)">所有繳交明細（含歷次上傳）</button>
+            </div>
+
+            <div id="teacherSummaryPanel" class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>學生 Email</th>
+                    <th>繳交次數</th>
+                    <th>最後繳交時間</th>
+                    <th>最後採計成績</th>
+                    <th>AI 評語摘要</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="teacherSummaryBody"></tbody>
+              </table>
+            </div>
+
+            <div id="teacherAllPanel" class="table-wrap hidden">
+              <table>
+                <thead>
+                  <tr>
+                    <th>狀態</th>
+                    <th>學生 Email</th>
+                    <th>次數</th>
+                    <th>繳交時間</th>
+                    <th>上傳檔案</th>
+                    <th>AI 分數</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="teacherAllBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- 教師分頁 2：作業建立與編輯 -->
+        <div id="teacherManageTab" class="hidden">
+          <div class="grid-2">
+            <div class="card">
+              <h3 id="asgFormTitle">建立新作業</h3>
+              <input type="hidden" id="editAssignmentId">
+              <div class="form-group">
+                <label for="asgTitle">作業標題 *</label>
+                <input type="text" id="asgTitle" placeholder="例如：第一次 Python 資料分析作業">
+              </div>
+              <div class="form-group">
+                <label for="asgDesc">作業說明</label>
+                <textarea id="asgDesc" placeholder="說明作業目標、繳交格式要求..."></textarea>
+              </div>
+              <div class="form-group">
+                <label for="asgRubric">AI 評分標準 *</label>
+                <textarea id="asgRubric" style="min-height:150px;" placeholder="例如：&#10;1. 程式能正確執行無語法錯誤 (40%)&#10;2. 演算法邏輯與資料清理完整度 (40%)&#10;3. 程式碼註解與說明清晰度 (20%)"></textarea>
+              </div>
+              <div class="grid-2">
+                <div class="form-group">
+                  <label for="asgMaxScore">滿分</label>
+                  <input type="number" id="asgMaxScore" value="100" min="1" max="1000">
+                </div>
+                <div class="form-group">
+                  <label for="asgStatus">繳交狀態</label>
+                  <select id="asgStatus">
+                    <option value="true">開放繳交</option>
+                    <option value="false">已關閉繳交</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-primary" id="saveAsgBtn" onclick="handleSaveAssignment()">儲存作業</button>
+                <button class="btn btn-secondary" onclick="resetAssignmentForm()">清除重填</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3>現有作業列表</h3>
+              <div id="teacherAsgList"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 學生模式 -->
+      <div id="studentView" class="hidden">
+        <div class="grid-2">
+          <!-- 左側：選擇作業與繳交 -->
+          <div>
+            <div class="card">
+              <h2>繳交作業</h2>
+              <div class="form-group">
+                <label for="studentAssignmentSelect">選擇作業</label>
+                <select id="studentAssignmentSelect" onchange="renderSelectedAssignmentInfo()"></select>
+              </div>
+              <div id="selectedAssignmentInfo" style="margin-bottom:16px;"></div>
+
+              <div id="submissionFormWrap">
+                <div class="form-group">
+                  <label for="studentTextAnswer">作業文字作答區</label>
+                  <textarea id="studentTextAnswer" placeholder="可在此直接輸入作業內容、心得或程式碼說明..."></textarea>
+                </div>
+
+                <div class="form-group">
+                  <label>上傳文字檔案（支援多檔：txt, md, csv, ipynb, py, json, js, html, css, sql...）</label>
+                  <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                    點擊選擇檔案，或將文字檔拖曳至此處<br>
+                    <span class="muted">系統僅讀取純文字存入資料庫，不保留實體檔案。可多次繳交，成績以最後一筆為準。</span>
+                  </div>
+                  <input type="file" id="fileInput" class="hidden" multiple
+                    accept=".txt,.md,.csv,.ipynb,.py,.json,.js,.jsx,.ts,.tsx,.html,.htm,.css,.scss,.xml,.yaml,.yml,.sql,.java,.c,.cpp,.h,.hpp,.cs,.go,.rs,.php,.rb,.r,.sh,.bat,.ps1,.log,.ini,.toml,.tex">
+                  <div id="selectedFilesList" class="file-list"></div>
+                </div>
+
+                <button class="btn btn-primary" id="submitHomeworkBtn" style="width:100%;" onclick="handleSubmitHomework()">
+                  送出作業並進行 AI 自動評分
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右側：採計成績與歷史紀錄 -->
+          <div>
+            <div class="card">
+              <h2>我的成績與評語回饋</h2>
+              <div id="studentLatestGradePanel"></div>
+              <h3 style="margin-top:20px;">歷次繳交紀錄（所有上傳皆會保留）</h3>
+              <div id="studentHistoryPanel"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 檢視詳細內容 Modal -->
+  <div id="detailModal" class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+    <div class="modal">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h3 style="margin:0;" id="modalTitle">繳交詳細內容</h3>
+        <button class="btn btn-secondary btn-sm" onclick="closeModal()">關閉</button>
+      </div>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <script>
+    const INITIAL_RELAY_TOKEN = (document.getElementById('relayTokenCarrier').dataset.token || '').trim();
+    const SESSION_KEY = 'ai_grader_session_token';
+    const CONSUMED_RELAY_KEY = 'ai_grader_consumed_relay';
+
+    let appState = {
+      user: null,
+      authRelayUrl: '',
+      assignments: [],
+      mySubmissions: [],
+      teacherData: { allSubmissions: [], studentSummaries: [] },
+      selectedFiles: [],
+      viewMode: 'auto'
+    };
+
+    const ALLOWED_EXT = new Set([
+      'txt','md','csv','ipynb','py','json','js','jsx','ts','tsx','html','htm',
+      'css','scss','xml','yaml','yml','sql','java','c','cpp','h','hpp','cs',
+      'go','rs','php','rb','r','sh','bat','ps1','log','ini','toml','tex'
+    ]);
+
+    window.addEventListener('DOMContentLoaded', function () {
+      setupFileEvents();
+      bootstrap();
+    });
+
+    function bootstrap() {
+      const consumedToken = sessionStorage.getItem(CONSUMED_RELAY_KEY) || '';
+      if (INITIAL_RELAY_TOKEN && INITIAL_RELAY_TOKEN !== consumedToken) {
+        sessionStorage.setItem(CONSUMED_RELAY_KEY, INITIAL_RELAY_TOKEN);
+        google.script.run
+          .withSuccessHandler(function (res) {
+            sessionStorage.setItem(SESSION_KEY, res.sessionToken);
+            loadInitData();
+          })
+          .withFailureHandler(function (err) {
+            showAuthError(err.message);
+            loadInitData();
+          })
+          .exchangeRelayToken(INITIAL_RELAY_TOKEN);
+      } else {
+        loadInitData();
+      }
+    }
+
+    function loadInitData() {
+      const token = sessionStorage.getItem(SESSION_KEY) || '';
+      google.script.run
+        .withSuccessHandler(onInitSuccess)
+        .withFailureHandler(function (err) {
+          document.getElementById('loadingCard').innerHTML =
+            '<div class="alert alert-error">系統載入失敗：' + escapeHtml(err.message) + '</div>';
+        })
+        .getAppInitData(token);
+    }
+
+    function onInitSuccess(data) {
+      document.getElementById('loadingCard').classList.add('hidden');
+      appState.authRelayUrl = data.authRelayUrl || '';
+
+      if (!data.authenticated) {
+        document.getElementById('mainApp').classList.add('hidden');
+        document.getElementById('authCard').classList.remove('hidden');
+        document.getElementById('userBar').innerHTML = '<span id="userStatusText">尚未登入</span>';
+        if (appState.authRelayUrl) {
+          document.getElementById('relayLoginLink').href = appState.authRelayUrl;
+          document.getElementById('relayLoginSection').classList.remove('hidden');
+        }
+        return;
+      }
+
+      hideAuthError();
+      document.getElementById('authCard').classList.add('hidden');
+      document.getElementById('mainApp').classList.remove('hidden');
+
+      appState.user = data.user;
+      appState.assignments = data.assignments || [];
+      appState.mySubmissions = data.mySubmissions || [];
+
+      if (!data.hasApiKey) {
+        document.getElementById('apiWarning').classList.remove('hidden');
+      }
+
+      if (appState.viewMode === 'auto') {
+        appState.viewMode = appState.user.isTeacher ? 'teacher' : 'student';
+      }
+
+      renderHeader();
+      renderCurrentView();
+    }
+
+    function renderHeader() {
+      const u = appState.user;
+      const roleBadge = u.isTeacher
+        ? '<span class="badge badge-teacher">教師</span>'
+        : '<span class="badge badge-student">學生</span>';
+
+      let switchBtn = '';
+      if (u.isTeacher) {
+        const nextLabel = appState.viewMode === 'teacher' ? '切換至學生繳交視角' : '返回教師管理後台';
+        switchBtn = '<button class="btn btn-outline btn-sm" onclick="toggleTeacherViewMode()">' + nextLabel + '</button>';
+      }
+
+      let logoutBtn = '';
+      if (u.authMethod !== 'GOOGLE_SESSION') {
+        logoutBtn = '<button class="btn btn-outline btn-sm" onclick="logoutSession()">登出</button>';
+      }
+
+      document.getElementById('userBar').innerHTML =
+        roleBadge +
+        '<span>' + escapeHtml(u.email) + '</span>' +
+        switchBtn +
+        logoutBtn;
+    }
+
+    function toggleTeacherViewMode() {
+      appState.viewMode = appState.viewMode === 'teacher' ? 'student' : 'teacher';
+      renderHeader();
+      renderCurrentView();
+    }
+
+    function renderCurrentView() {
+      const isTeacherView = appState.user.isTeacher && appState.viewMode === 'teacher';
+      document.getElementById('teacherView').classList.toggle('hidden', !isTeacherView);
+      document.getElementById('studentView').classList.toggle('hidden', isTeacherView);
+
+      if (isTeacherView) {
+        renderTeacherAssignments();
+        loadTeacherDashboard();
+      } else {
+        renderStudentAssignments();
+        renderSelectedAssignmentInfo();
+      }
+    }
+
+    // ==========================================
+    // 登入驗證動作
+    // ==========================================
+
+    function handleSendOtp() {
+      const email = document.getElementById('otpEmail').value.trim();
+      const btn = document.getElementById('sendOtpBtn');
+      btn.disabled = true;
+      btn.textContent = '寄送中...';
+      hideAuthError();
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          btn.disabled = false;
+          btn.textContent = '重新寄送驗證碼';
+          document.getElementById('otpVerifyBox').classList.remove('hidden');
+          alert(res.message);
+        })
+        .withFailureHandler(function (err) {
+          btn.disabled = false;
+          btn.textContent = '寄送 6 位數驗證碼';
+          showAuthError(err.message);
+        })
+        .requestEmailOtp(email);
+    }
+
+    function handleVerifyOtp() {
+      const email = document.getElementById('otpEmail').value.trim();
+      const code = document.getElementById('otpCode').value.trim();
+      const btn = document.getElementById('verifyOtpBtn');
+      btn.disabled = true;
+      hideAuthError();
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          btn.disabled = false;
+          sessionStorage.setItem(SESSION_KEY, res.sessionToken);
+          loadInitData();
+        })
+        .withFailureHandler(function (err) {
+          btn.disabled = false;
+          showAuthError(err.message);
+        })
+        .verifyEmailOtp(email, code);
+    }
+
+    function logoutSession() {
+      sessionStorage.removeItem(SESSION_KEY);
+      appState.user = null;
+      appState.viewMode = 'auto';
+      onInitSuccess({
+        authenticated: false,
+        authRelayUrl: appState.authRelayUrl
+      });
+    }
+
+    function showAuthError(msg) {
+      const box = document.getElementById('authErrorBox');
+      box.textContent = msg;
+      box.classList.remove('hidden');
+    }
+
+    function hideAuthError() {
+      document.getElementById('authErrorBox').classList.add('hidden');
+    }
+
+    // ==========================================
+    // 教師端功能
+    // ==========================================
+
+    function switchTeacherTab(tab, btnEl) {
+      document.querySelectorAll('#teacherView > .tabs .tab-btn').forEach(function (b) { b.classList.remove('active'); });
+      btnEl.classList.add('active');
+      document.getElementById('teacherDashboardTab').classList.toggle('hidden', tab !== 'dashboard');
+      document.getElementById('teacherManageTab').classList.toggle('hidden', tab !== 'manage');
+    }
+
+    function switchTeacherSubTab(panel, btnEl) {
+      btnEl.parentElement.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
+      btnEl.classList.add('active');
+      document.getElementById('teacherSummaryPanel').classList.toggle('hidden', panel !== 'summary');
+      document.getElementById('teacherAllPanel').classList.toggle('hidden', panel !== 'all');
+    }
+
+    function renderTeacherAssignments() {
+      const sel = document.getElementById('teacherAssignmentFilter');
+      const prevVal = sel.value;
+      let html = '<option value="">全部作業</option>';
+      appState.assignments.forEach(function (a) {
+        html += '<option value="' + escapeHtml(a.assignmentId) + '">' +
+          escapeHtml(a.title) + (a.isActive ? '' : '（已關閉）') + '</option>';
+      });
+      sel.innerHTML = html;
+      if (prevVal) sel.value = prevVal;
+
+      const listEl = document.getElementById('teacherAsgList');
+      if (appState.assignments.length === 0) {
+        listEl.innerHTML = '<p class="muted">目前尚無作業，請由左側表單建立。</p>';
+        return;
+      }
+
+      listEl.innerHTML = appState.assignments.map(function (a) {
+        const badge = a.isActive
+          ? '<span class="badge badge-active">開放中</span>'
+          : '<span class="badge badge-closed">已關閉</span>';
+        return '<div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">' +
+          '<strong>' + escapeHtml(a.title) + '</strong>' + badge +
+          '</div>' +
+          '<div class="muted" style="margin:4px 0;">滿分：' + a.maxScore + ' 分</div>' +
+          '<button class="btn btn-secondary btn-sm" onclick="editAssignment(\'' + escapeHtml(a.assignmentId) + '\')">編輯此作業</button>' +
+          '</div>';
+      }).join('');
+    }
+
+    function editAssignment(id) {
+      const a = appState.assignments.find(function (item) { return item.assignmentId === id; });
+      if (!a) return;
+      document.getElementById('asgFormTitle').textContent = '編輯作業';
+      document.getElementById('editAssignmentId').value = a.assignmentId;
+      document.getElementById('asgTitle').value = a.title;
+      document.getElementById('asgDesc').value = a.description;
+      document.getElementById('asgRubric').value = a.rubric;
+      document.getElementById('asgMaxScore').value = a.maxScore;
+      document.getElementById('asgStatus').value = a.isActive ? 'true' : 'false';
+    }
+
+    function resetAssignmentForm() {
+      document.getElementById('asgFormTitle').textContent = '建立新作業';
+      document.getElementById('editAssignmentId').value = '';
+      document.getElementById('asgTitle').value = '';
+      document.getElementById('asgDesc').value = '';
+      document.getElementById('asgRubric').value = '';
+      document.getElementById('asgMaxScore').value = 100;
+      document.getElementById('asgStatus').value = 'true';
+    }
+
+    function handleSaveAssignment() {
+      const btn = document.getElementById('saveAsgBtn');
+      const payload = {
+        assignmentId: document.getElementById('editAssignmentId').value,
+        title: document.getElementById('asgTitle').value,
+        description: document.getElementById('asgDesc').value,
+        rubric: document.getElementById('asgRubric').value,
+        maxScore: Number(document.getElementById('asgMaxScore').value) || 100,
+        isActive: document.getElementById('asgStatus').value === 'true'
+      };
+
+      btn.disabled = true;
+      btn.textContent = '儲存中...';
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          btn.disabled = false;
+          btn.textContent = '儲存作業';
+          appState.assignments = res.assignments;
+          resetAssignmentForm();
+          renderTeacherAssignments();
+          alert('作業儲存成功！');
+        })
+        .withFailureHandler(function (err) {
+          btn.disabled = false;
+          btn.textContent = '儲存作業';
+          alert('儲存失敗：' + err.message);
+        })
+        .saveAssignment(sessionStorage.getItem(SESSION_KEY) || '', payload);
+    }
+
+    function loadTeacherDashboard() {
+      const filterId = document.getElementById('teacherAssignmentFilter').value;
+      document.getElementById('teacherStats').textContent = '資料讀取中...';
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          appState.teacherData = res;
+          renderTeacherTables();
+        })
+        .withFailureHandler(function (err) {
+          document.getElementById('teacherStats').textContent = '讀取失敗：' + err.message;
+        })
+        .getTeacherDashboardData(sessionStorage.getItem(SESSION_KEY) || '', filterId);
+    }
+
+    function renderTeacherTables() {
+      const summaries = appState.teacherData.studentSummaries || [];
+      const allSubs = appState.teacherData.allSubmissions || [];
+
+      const validScores = summaries
+        .map(function (s) { return s.latestSubmission ? s.latestSubmission.aiScore : null; })
+        .filter(function (v) { return v !== null && !isNaN(v); });
+      const avg = validScores.length
+        ? (validScores.reduce(function (a, b) { return a + b; }, 0) / validScores.length).toFixed(1)
+        : '-';
+
+      document.getElementById('teacherStats').innerHTML =
+        '已繳交人次（依作業與學生分組）：<strong>' + summaries.length + '</strong> ｜ ' +
+        '總繳交筆數：<strong>' + allSubs.length + '</strong> ｜ ' +
+        '採計平均成績：<strong>' + avg + '</strong>';
+
+      const sumBody = document.getElementById('teacherSummaryBody');
+      if (summaries.length === 0) {
+        sumBody.innerHTML = '<tr><td colspan="6" class="muted">目前尚無學生繳交紀錄。</td></tr>';
+      } else {
+        sumBody.innerHTML = summaries.map(function (item) {
+          const latest = item.latestSubmission || {};
+          const asgName = getAssignmentTitle_(item.assignmentId);
+          return '<tr>' +
+            '<td><strong>' + escapeHtml(item.studentEmail) + '</strong><br><span class="muted">' + escapeHtml(asgName) + '</span></td>' +
+            '<td>第 ' + item.totalAttempts + ' 次</td>' +
+            '<td>' + formatTime(latest.submittedAt) + '</td>' +
+            '<td><strong style="color:var(--primary);font-size:1.05rem;">' + (latest.aiScore !== null ? latest.aiScore : '-') + '</strong></td>' +
+            '<td style="max-width:260px;">' + escapeHtml((latest.aiFeedback || '').slice(0, 75)) + '...</td>' +
+            '<td><button class="btn btn-secondary btn-sm" onclick="openSubmissionModal(\'' + escapeHtml(latest.submissionId) + '\', true)">檢視 / 重評</button></td>' +
+            '</tr>';
+        }).join('');
+      }
+
+      const allBody = document.getElementById('teacherAllBody');
+      if (allSubs.length === 0) {
+        allBody.innerHTML = '<tr><td colspan="7" class="muted">目前尚無任何繳交明細。</td></tr>';
+      } else {
+        allBody.innerHTML = allSubs.map(function (s) {
+          const badge = s.isLatest
+            ? '<span class="badge badge-latest">採計成績</span>'
+            : '<span class="badge badge-old">歷史紀錄</span>';
+          return '<tr>' +
+            '<td>' + badge + '</td>' +
+            '<td>' + escapeHtml(s.studentEmail) + '<br><span class="muted">' + escapeHtml(getAssignmentTitle_(s.assignmentId)) + '</span></td>' +
+            '<td>#' + s.attemptNumber + '</td>' +
+            '<td>' + formatTime(s.submittedAt) + '</td>' +
+            '<td>' + escapeHtml(s.fileNames || '（純文字）') + '</td>' +
+            '<td><strong>' + (s.aiScore !== null ? s.aiScore : '-') + '</strong></td>' +
+            '<td><button class="btn btn-secondary btn-sm" onclick="openSubmissionModal(\'' + escapeHtml(s.submissionId) + '\', true)">檢視詳情</button></td>' +
+            '</tr>';
+        }).join('');
+      }
+    }
+
+    function exportTeacherCsv() {
+      const summaries = appState.teacherData.studentSummaries || [];
+      if (summaries.length === 0) {
+        alert('目前沒有可匯出的資料。');
+        return;
+      }
+      const rows = [['作業名稱', '學生Email', '繳交次數', '最後繳交時間', '採計成績', 'AI評分理由', 'AI回饋']];
+      summaries.forEach(function (item) {
+        const s = item.latestSubmission || {};
+        rows.push([
+          getAssignmentTitle_(item.assignmentId),
+          item.studentEmail,
+          item.totalAttempts,
+          formatTime(s.submittedAt),
+          s.aiScore !== null ? s.aiScore : '',
+          s.aiReasoning || '',
+          s.aiFeedback || ''
+        ]);
+      });
+
+      const csv = '\uFEFF' + rows.map(function (r) {
+        return r.map(function (cell) {
+          return '"' + String(cell).replace(/"/g, '""') + '"';
+        }).join(',');
+      }).join('\n');
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = '作業成績總覽_' + new Date().toISOString().slice(0, 10) + '.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // ==========================================
+    // 學生端功能與多檔案純文字讀取
+    // ==========================================
+
+    function renderStudentAssignments() {
+      const sel = document.getElementById('studentAssignmentSelect');
+      const prev = sel.value;
+      if (appState.assignments.length === 0) {
+        sel.innerHTML = '<option value="">目前尚無任何作業</option>';
+        return;
+      }
+      sel.innerHTML = appState.assignments.map(function (a) {
+        return '<option value="' + escapeHtml(a.assignmentId) + '">' +
+          escapeHtml(a.title) + (a.isActive ? '' : '（已關閉）') + '</option>';
+      }).join('');
+      if (prev && appState.assignments.some(function (a) { return a.assignmentId === prev; })) {
+        sel.value = prev;
+      }
+    }
+
+    function renderSelectedAssignmentInfo() {
+      const asgId = document.getElementById('studentAssignmentSelect').value;
+      const asg = appState.assignments.find(function (a) { return a.assignmentId === asgId; });
+      const infoEl = document.getElementById('selectedAssignmentInfo');
+      const formWrap = document.getElementById('submissionFormWrap');
+
+      if (!asg) {
+        infoEl.innerHTML = '<p class="muted">請等待教師建立作業。</p>';
+        formWrap.classList.add('hidden');
+        document.getElementById('studentLatestGradePanel').innerHTML = '';
+        document.getElementById('studentHistoryPanel').innerHTML = '';
+        return;
+      }
+
+      const canSubmit = asg.isActive || appState.user.isTeacher;
+      formWrap.classList.toggle('hidden', !canSubmit);
+
+      infoEl.innerHTML =
+        '<div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:12px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+        '<strong>作業說明（滿分 ' + asg.maxScore + ' 分）</strong>' +
+        (asg.isActive ? '<span class="badge badge-active">開放繳交中</span>' : '<span class="badge badge-closed">已關閉繳交</span>') +
+        '</div>' +
+        '<p style="white-space:pre-wrap;margin:8px 0;">' + escapeHtml(asg.description || '無額外說明') + '</p>' +
+        '<strong>評分標準</strong>' +
+        '<p style="white-space:pre-wrap;margin:6px 0 0;color:#334155;">' + escapeHtml(asg.rubric) + '</p>' +
+        '</div>';
+
+      renderStudentSubmissionsForAssignment(asg);
+    }
+
+    function renderStudentSubmissionsForAssignment(asg) {
+      const list = appState.mySubmissions.filter(function (s) { return s.assignmentId === asg.assignmentId; });
+      const latestPanel = document.getElementById('studentLatestGradePanel');
+      const historyPanel = document.getElementById('studentHistoryPanel');
+
+      if (list.length === 0) {
+        latestPanel.innerHTML = '<p class="muted">您尚未繳交此項作業。</p>';
+        historyPanel.innerHTML = '<p class="muted">尚無繳交紀錄。</p>';
+        return;
+      }
+
+      const latest = list.find(function (s) { return s.isLatest; }) || list[0];
+      latestPanel.innerHTML =
+        '<div class="score-box">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+        '<span class="badge badge-latest">採計成績（最後一筆 · 第 ' + latest.attemptNumber + ' 次繳交）</span>' +
+        '<span class="muted">' + formatTime(latest.submittedAt) + '</span>' +
+        '</div>' +
+        '<div class="score-big" style="margin:8px 0;">' + latest.aiScore + ' <span style="font-size:1rem;font-weight:500;color:#64748b;">/ ' + asg.maxScore + ' 分</span></div>' +
+        '<p style="margin:6px 0;"><strong>評分理由：</strong><br><span style="white-space:pre-wrap;">' + escapeHtml(latest.aiReasoning) + '</span></p>' +
+        '<p style="margin:10px 0 0;"><strong>教師/AI 回饋：</strong><br><span style="white-space:pre-wrap;">' + escapeHtml(latest.aiFeedback) + '</span></p>' +
+        '</div>';
+
+      historyPanel.innerHTML = list.map(function (s) {
+        const badge = s.isLatest
+          ? '<span class="badge badge-latest">最後一筆（採計）</span>'
+          : '<span class="badge badge-old">歷史紀錄</span>';
+        return '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;">' +
+          '<div>' +
+          '<strong>第 ' + s.attemptNumber + ' 次繳交</strong> ' + badge +
+          '<div class="muted">' + formatTime(s.submittedAt) + ' · 分數：<strong>' + s.aiScore + '</strong></div>' +
+          '<div class="muted">檔案：' + escapeHtml(s.fileNames || '（純文字）') + '</div>' +
+          '</div>' +
+          '<button class="btn btn-secondary btn-sm" onclick="openSubmissionModal(\'' + escapeHtml(s.submissionId) + '\', false)">檢視</button>' +
+          '</div>';
+      }).join('');
+    }
+
+    function setupFileEvents() {
+      const fileInput = document.getElementById('fileInput');
+      const dropZone = document.getElementById('dropZone');
+
+      fileInput.addEventListener('change', function (e) {
+        handleFilesSelected(e.target.files);
+        fileInput.value = '';
+      });
+
+      dropZone.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+      });
+      dropZone.addEventListener('dragleave', function () {
+        dropZone.classList.remove('dragover');
+      });
+      dropZone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        handleFilesSelected(e.dataTransfer.files);
+      });
+    }
+
+    function handleFilesSelected(fileList) {
+      Array.from(fileList).forEach(function (file) {
+        const ext = (file.name.split('.').pop() || '').toLowerCase();
+        if (!ALLOWED_EXT.has(ext) && !file.type.startsWith('text/')) {
+          alert('檔案「' + file.name + '」不是支援的純文字或程式碼格式。');
+          return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+          alert('檔案「' + file.name + '」超過 2MB，請精簡後再上傳。');
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function (evt) {
+          let text = String(evt.target.result || '');
+          if (text.indexOf('\u0000') !== -1) {
+            alert('檔案「' + file.name + '」偵測到二進位內容，無法以純文字方式儲存。');
+            return;
+          }
+          if (ext === 'ipynb') {
+            text = sanitizeIpynbText(text);
+          }
+          appState.selectedFiles.push({ name: file.name, content: text });
+          renderSelectedFiles();
+        };
+        reader.readAsText(file, 'UTF-8');
+      });
+    }
+
+    // 針對 Jupyter Notebook (.ipynb) 移除過大的圖片 Base64 輸出，保留所有程式碼與文字
+    function sanitizeIpynbText(rawText) {
+      try {
+        const nb = JSON.parse(rawText);
+        if (Array.isArray(nb.cells)) {
+          nb.cells.forEach(function (cell) {
+            if (Array.isArray(cell.outputs)) {
+              cell.outputs.forEach(function (out) {
+                if (out.data) {
+                  Object.keys(out.data).forEach(function (mime) {
+                    if (mime.indexOf('image/') === 0) {
+                      out.data[mime] = '[已略過內嵌圖片 Base64 以符合試算表儲存限制]';
+                    }
+                  });
+                }
+              });
+            }
+          });
+        }
+        return JSON.stringify(nb, null, 2);
+      } catch (e) {
+        return rawText;
+      }
+    }
+
+    function renderSelectedFiles() {
+      const el = document.getElementById('selectedFilesList');
+      el.innerHTML = appState.selectedFiles.map(function (f, idx) {
+        return '<div class="file-item">' +
+          '<span>' + escapeHtml(f.name) + ' <span class="muted">(' + f.content.length + ' 字元)</span></span>' +
+          '<button class="btn btn-secondary btn-sm" onclick="removeSelectedFile(' + idx + ')">移除</button>' +
+          '</div>';
+      }).join('');
+    }
+
+    function removeSelectedFile(idx) {
+      appState.selectedFiles.splice(idx, 1);
+      renderSelectedFiles();
+    }
+
+    function handleSubmitHomework() {
+      const asgId = document.getElementById('studentAssignmentSelect').value;
+      const textContent = document.getElementById('studentTextAnswer').value;
+
+      if (!asgId) {
+        alert('請先選擇作業。');
+        return;
+      }
+      if (!textContent.trim() && appState.selectedFiles.length === 0) {
+        alert('請填寫作業文字內容，或上傳至少一份文字檔案。');
+        return;
+      }
+
+      const btn = document.getElementById('submitHomeworkBtn');
+      btn.disabled = true;
+      btn.textContent = 'AI 正在依據評分標準批改中，請稍候...';
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          btn.disabled = false;
+          btn.textContent = '送出作業並進行 AI 自動評分';
+          appState.mySubmissions = res.mySubmissions;
+          document.getElementById('studentTextAnswer').value = '';
+          appState.selectedFiles = [];
+          renderSelectedFiles();
+          renderSelectedAssignmentInfo();
+          alert('繳交並批改完成！本次得分：' + res.submission.aiScore + ' 分');
+        })
+        .withFailureHandler(function (err) {
+          btn.disabled = false;
+          btn.textContent = '送出作業並進行 AI 自動評分';
+          alert('繳交失敗：' + err.message);
+        })
+        .submitAssignment(sessionStorage.getItem(SESSION_KEY) || '', {
+          assignmentId: asgId,
+          textContent: textContent,
+          files: appState.selectedFiles
+        });
+    }
+
+    // ==========================================
+    // 共用 Modal 檢視與重新評分
+    // ==========================================
+
+    function openSubmissionModal(submissionId, allowRegrade) {
+      const pool = allowRegrade ? appState.teacherData.allSubmissions : appState.mySubmissions;
+      const s = pool.find(function (item) { return item.submissionId === submissionId; });
+      if (!s) return;
+
+      document.getElementById('modalTitle').textContent =
+        getAssignmentTitle_(s.assignmentId) + ' — 第 ' + s.attemptNumber + ' 次繳交';
+
+      const regradeBtn = allowRegrade
+        ? '<button class="btn btn-primary btn-sm" id="regradeBtn" onclick="handleRegrade(\'' + escapeHtml(s.submissionId) + '\')">重新以 AI 評分</button>'
+        : '';
+
+      document.getElementById('modalBody').innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">' +
+        '<div><strong>學生：</strong>' + escapeHtml(s.studentEmail) + ' · <span class="muted">' + formatTime(s.submittedAt) + '</span></div>' +
+        regradeBtn +
+        '</div>' +
+        '<div class="score-box">' +
+        '<div><strong>AI 評分：</strong><span style="font-size:1.4rem;font-weight:700;color:var(--primary);">' + s.aiScore + '</span>' +
+        ' <span class="muted">（模型：' + escapeHtml(s.modelUsed || '-') + '）</span></div>' +
+        '<p style="margin:8px 0;"><strong>評分理由：</strong><br><span style="white-space:pre-wrap;">' + escapeHtml(s.aiReasoning) + '</span></p>' +
+        '<p style="margin:8px 0 0;"><strong>評語回饋：</strong><br><span style="white-space:pre-wrap;">' + escapeHtml(s.aiFeedback) + '</span></p>' +
+        '</div>' +
+        '<h4>文字作答內容</h4>' +
+        '<div class="pre-box">' + escapeHtml(s.textContent || '（無填寫文字）') + '</div>' +
+        '<h4 style="margin-top:16px;">上傳檔案純文字內容（' + escapeHtml(s.fileNames || '無檔案') + '）</h4>' +
+        '<div class="pre-box">' + escapeHtml(s.filesFullText || '（無上傳檔案）') + '</div>';
+
+      document.getElementById('detailModal').classList.add('open');
+    }
+
+    function handleRegrade(submissionId) {
+      const btn = document.getElementById('regradeBtn');
+      btn.disabled = true;
+      btn.textContent = 'AI 重新評分中...';
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          alert('重新評分完成！新分數：' + res.score);
+          closeModal();
+          loadTeacherDashboard();
+        })
+        .withFailureHandler(function (err) {
+          btn.disabled = false;
+          btn.textContent = '重新以 AI 評分';
+          alert('重新評分失敗：' + err.message);
+        })
+        .regradeSubmission(sessionStorage.getItem(SESSION_KEY) || '', submissionId);
+    }
+
+    function closeModal() {
+      document.getElementById('detailModal').classList.remove('open');
+    }
+
+    // ==========================================
+    // 工具函式
+    // ==========================================
+
+    function getAssignmentTitle_(assignmentId) {
+      const a = appState.assignments.find(function (item) { return item.assignmentId === assignmentId; });
+      return a ? a.title : assignmentId;
+    }
+
+    function formatTime(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      return isNaN(d.getTime()) ? iso : d.toLocaleString('zh-TW', { hour12: false });
+    }
+
+    function escapeHtml(str) {
+      return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+  </script>
+</body>
+</html>
